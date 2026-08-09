@@ -1,0 +1,22 @@
+# --- Secrets / env ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Java / Spring Boot ---
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/
+!**/src/main/**
+!**/src/test/**
+HELP.md
+
+# --- IDE ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
