@@ -6,8 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Implements POST /api/v1/batches per Section 4.1.
- * Gateway is expected to route /api/v1/** here.
+ * Implements POST /api/v1/batches and GET /api/v1/batches/{trackingCode}
+ * per Section 4.1. Gateway is expected to route /api/v1/** here.
  */
 @RestController
 @RequestMapping("/api/v1/batches")
@@ -23,5 +23,11 @@ public class BatchController {
     public ResponseEntity<BatchResponse> registerBatch(@Valid @RequestBody BatchRequest request) {
         BatchResponse response = batchService.registerBatch(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{trackingCode}")
+    public ResponseEntity<BatchDetailResponse> getBatch(@PathVariable String trackingCode) {
+        BatchDetailResponse response = batchService.getBatchByTrackingCode(trackingCode);
+        return ResponseEntity.ok(response);
     }
 }
