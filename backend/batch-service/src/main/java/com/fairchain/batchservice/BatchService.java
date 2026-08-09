@@ -72,6 +72,20 @@ public class BatchService {
         );
     }
 
+    public PriceJourneyResponse getPriceJourney(String trackingCode) {
+        Batch batch = batchRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new BatchNotFoundException(trackingCode));
+
+        return new PriceJourneyResponse(
+                batch.getId().toString(),
+                batch.getTrackingCode(),
+                batch.getCrop(),
+                batch.getRegion(),
+                batch.getStatus(),
+                batch.getCreatedAt()
+        );
+    }
+
     private String generateTrackingCode(String crop) {
         String cropCode = crop.length() >= 3
                 ? crop.substring(0, 3).toUpperCase()
