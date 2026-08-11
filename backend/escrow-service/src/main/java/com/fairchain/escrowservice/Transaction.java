@@ -14,6 +14,9 @@ public class Transaction {
     @Column(name = "batch_id", nullable = false, unique = true)
     private String batchId;
 
+    @Column(name = "farmer_id", nullable = false)
+    private String farmerId;
+
     @Column(name = "buyer_id", nullable = false)
     private String buyerId;
 
@@ -29,8 +32,10 @@ public class Transaction {
     protected Transaction() {
     }
 
-    public Transaction(String batchId, String buyerId, Double amount, String escrowStatus, Instant releasedAt) {
+    public Transaction(String batchId, String farmerId, String buyerId, Double amount,
+                        String escrowStatus, Instant releasedAt) {
         this.batchId = batchId;
+        this.farmerId = farmerId;
         this.buyerId = buyerId;
         this.amount = amount;
         this.escrowStatus = escrowStatus;
@@ -39,6 +44,7 @@ public class Transaction {
 
     public Long getId() { return id; }
     public String getBatchId() { return batchId; }
+    public String getFarmerId() { return farmerId; }
     public String getBuyerId() { return buyerId; }
     public Double getAmount() { return amount; }
     public String getEscrowStatus() { return escrowStatus; }

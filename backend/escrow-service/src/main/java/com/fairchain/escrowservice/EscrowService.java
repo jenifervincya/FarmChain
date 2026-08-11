@@ -38,6 +38,7 @@ public class EscrowService {
     public void onSaleConfirmed(SaleConfirmedEvent event) {
         Transaction transaction = new Transaction(
                 event.getBatchId(),
+                event.getFarmerId(),
                 event.getBuyerId(),
                 event.getPrice(),
                 "PENDING",
@@ -48,12 +49,6 @@ public class EscrowService {
         checkInsurancePool(event);
     }
 
-    /**
-     * Now functional — sale-confirmed carries crop/region (Section 6
-     * rule #2 schema extension). Calls AI's /ai/fair-price-band directly
-     * since escrow-service doesn't have its own AiClient class yet; kept
-     * inline for now rather than over-engineering a shared client.
-     */
     @SuppressWarnings("unchecked")
     private void checkInsurancePool(SaleConfirmedEvent event) {
         String url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/ai/fair-price-band")
@@ -63,7 +58,7 @@ public class EscrowService {
 
         Map<String, Object> band = restTemplate.getForObject(url, Map.class);
         if (band == null || band.get("minPrice") == null) {
-            return; // AI unreachable or malformed response — fail safe, no claim created
+            return;
         }
 
         double minPrice = ((Number) band.get("minPrice")).doubleValue();
@@ -91,6 +86,7 @@ public class EscrowService {
 
                 PaymentReleasedEvent released = new PaymentReleasedEvent(
                         transaction.getBatchId(),
+                        transaction.getFarmerId(),
                         transaction.getBuyerId(),
                         transaction.getAmount(),
                         now

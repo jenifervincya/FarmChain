@@ -23,10 +23,6 @@ public class NotificationService {
         save(event.getFarmerId(), event.getBatchId(), "BATCH_REGISTERED", message, "PENDING");
     }
 
-    /**
-     * Now resolves — sale-confirmed carries farmerId as of the Section 6
-     * rule #2 schema extension made alongside auction-service/escrow-service.
-     */
     @KafkaListener(topics = "${fairchain.kafka.topic.sale-confirmed}", groupId = "notification-service")
     public void onSaleConfirmed(SaleConfirmedEvent event) {
         String message = String.format(
@@ -37,10 +33,8 @@ public class NotificationService {
     }
 
     /**
-     * STILL INCOMPLETE: payment-released's payload (Section 4.2, plus the
-     * payment-released addition from escrow-service) only has buyerId, no
-     * farmerId. Would need the same kind of schema extension applied here
-     * too — not done yet, flagged separately.
+     * Now resolves — payment-released carries farmerId as of the
+     * escrow-service Transaction/PaymentReleasedEvent extension.
      */
     @KafkaListener(topics = "${fairchain.kafka.topic.payment-released}", groupId = "notification-service")
     public void onPaymentReleased(PaymentReleasedEvent event) {
@@ -48,7 +42,7 @@ public class NotificationService {
                 "Payment of %.2f has been released for your batch.",
                 event.getAmount()
         );
-        save(null, event.getBatchId(), "PAYMENT_RELEASED", message, "UNRESOLVED");
+        save(event.getFarmerId(), event.getBatchId(), "PAYMENT_RELEASED", message, "PENDING");
     }
 
     private void save(String farmerId, String batchId, String eventType, String message, String status) {
