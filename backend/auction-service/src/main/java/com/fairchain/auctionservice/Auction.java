@@ -13,6 +13,15 @@ public class Auction {
     @Column(name = "batch_id", nullable = false, unique = true)
     private String batchId;
 
+    @Column(name = "farmer_id", nullable = false)
+    private String farmerId;
+
+    @Column(nullable = false)
+    private String crop;
+
+    @Column(nullable = false)
+    private String region;
+
     @Column(nullable = false)
     private String status; // OPEN, CLOSED
 
@@ -28,14 +37,21 @@ public class Auction {
     protected Auction() {
     }
 
-    public Auction(String batchId, String status, Double floorPrice) {
+    public Auction(String batchId, String farmerId, String crop, String region,
+                    String status, Double floorPrice) {
         this.batchId = batchId;
+        this.farmerId = farmerId;
+        this.crop = crop;
+        this.region = region;
         this.status = status;
         this.floorPrice = floorPrice;
     }
 
     public Long getId() { return id; }
     public String getBatchId() { return batchId; }
+    public String getFarmerId() { return farmerId; }
+    public String getCrop() { return crop; }
+    public String getRegion() { return region; }
     public String getStatus() { return status; }
     public Double getFloorPrice() { return floorPrice; }
     public Double getWinningBid() { return winningBid; }

@@ -4,6 +4,9 @@ public class SaleConfirmedEvent {
     private String batchId;
     private Double price;
     private String buyerId;
+    private String farmerId;
+    private String crop;
+    private String region;
 
     public SaleConfirmedEvent() {}
 
@@ -13,4 +16,10 @@ public class SaleConfirmedEvent {
     public void setPrice(Double price) { this.price = price; }
     public String getBuyerId() { return buyerId; }
     public void setBuyerId(String buyerId) { this.buyerId = buyerId; }
+    public String getFarmerId() { return farmerId; }
+    public void setFarmerId(String farmerId) { this.farmerId = farmerId; }
+    public String getCrop() { return crop; }
+    public void setCrop(String crop) { this.crop = crop; }
+    public String getRegion() { return region; }
+    public void setRegion(String region) { this.region = region; }
 }

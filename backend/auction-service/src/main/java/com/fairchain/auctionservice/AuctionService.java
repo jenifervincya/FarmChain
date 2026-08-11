@@ -28,17 +28,18 @@ public class AuctionService {
         this.saleConfirmedTopic = saleConfirmedTopic;
     }
 
-    /**
-     * Opens an auction when a batch is registered. INFERENCE, not
-     * explicit in the spec: Section 1.4 steps 2-3 imply this ordering
-     * (AI computes band -> auction opens) but never states what event
-     * triggers auction creation. Flagged.
-     */
     @KafkaListener(topics = "${fairchain.kafka.topic.batch-registered}", groupId = "auction-service")
     public void onBatchRegistered(BatchRegisteredEvent event) {
         FairPriceBandResponse band = aiClient.getFairPriceBand(event.getCrop(), event.getRegion());
 
-        Auction auction = new Auction(event.getBatchId(), "OPEN", band.getMinPrice());
+        Auction auction = new Auction(
+                event.getBatchId(),
+                event.getFarmerId(),
+                event.getCrop(),
+                event.getRegion(),
+                "OPEN",
+                band.getMinPrice()
+        );
         auctionRepository.save(auction);
     }
 
@@ -53,8 +54,6 @@ public class AuctionService {
             return new BidResponse(saved.getId().toString(), "REJECTED", "Auction is not open");
         }
 
-        // Backend enforces the accept/reject rule; AI only supplied the
-        // floor value (Section 2.2 / Section 6 rule #3).
         if (request.getAmount() < auction.getFloorPrice()) {
             Bid rejected = new Bid(auction.getId(), request.getBuyerId(), request.getAmount(),
                     "REJECTED", Instant.now());
@@ -71,14 +70,16 @@ public class AuctionService {
         auctionRepository.save(auction);
 
         SaleConfirmedEvent saleEvent = new SaleConfirmedEvent(
-                auction.getBatchId(), request.getAmount(), request.getBuyerId()
+                auction.getBatchId(),
+                request.getAmount(),
+                request.getBuyerId(),
+                auction.getFarmerId(),
+                auction.getCrop(),
+                auction.getRegion()
         );
         kafkaTemplate.send(saleConfirmedTopic, auction.getBatchId(), saleEvent);
 
-        // TODO: price-deviation publish — Section 4.2 lists this topic
-        // as Backend-produced when "price deviates from fair band," but
-        // doesn't define the deviation threshold/condition. Needs team
-        // decision before implementing. Flagged, not silently skipped.
+        // TODO: price-deviation publish — deviation threshold undefined, flagged.
 
         return new BidResponse(saved.getId().toString(), "ACCEPTED", "Bid accepted, auction closed");
     }

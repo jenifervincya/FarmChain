@@ -37,3 +37,5 @@ fairchain:
       sale-confirmed: sale-confirmed
       delivery-event: delivery-event
       payment-released: payment-released
+  ai:
+    base-url: ${AI_SERVICE_BASE_URL:http://localhost:8000}
