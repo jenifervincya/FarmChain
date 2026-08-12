@@ -20,5 +20,3 @@ HELP.md
 .vscode/
 *.iml
 .DS_Store
-
-frontend/node_modules/
