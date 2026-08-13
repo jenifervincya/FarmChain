@@ -1,5 +1,6 @@
 package com.fairchain.escrowservice;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -19,6 +20,7 @@ public class EscrowService {
     private final String paymentReleasedTopic;
     private final RestTemplate restTemplate;
     private final String aiBaseUrl;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public EscrowService(TransactionRepository transactionRepository,
                           InsuranceClaimRepository insuranceClaimRepository,
@@ -35,7 +37,9 @@ public class EscrowService {
     }
 
     @KafkaListener(topics = "${fairchain.kafka.topic.sale-confirmed}", groupId = "escrow-service")
-    public void onSaleConfirmed(SaleConfirmedEvent event) {
+    public void onSaleConfirmed(String rawPayload) throws Exception {
+        SaleConfirmedEvent event = objectMapper.readValue(rawPayload, SaleConfirmedEvent.class);
+
         Transaction transaction = new Transaction(
                 event.getBatchId(),
                 event.getFarmerId(),
@@ -77,7 +81,9 @@ public class EscrowService {
     }
 
     @KafkaListener(topics = "${fairchain.kafka.topic.delivery-event}", groupId = "escrow-service")
-    public void onDeliveryEvent(DeliveryEventPayload event) {
+    public void onDeliveryEvent(String rawPayload) throws Exception {
+        DeliveryEventPayload event = objectMapper.readValue(rawPayload, DeliveryEventPayload.class);
+
         transactionRepository.findByBatchId(event.getBatchId()).ifPresent(transaction -> {
             if ("PENDING".equals(transaction.getEscrowStatus())) {
                 Instant now = Instant.now();

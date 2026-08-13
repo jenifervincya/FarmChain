@@ -1,5 +1,6 @@
 package com.fairchain.notificationservice;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -9,13 +10,15 @@ import java.time.Instant;
 public class NotificationService {
 
     private final NotificationLogRepository repository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public NotificationService(NotificationLogRepository repository) {
         this.repository = repository;
     }
 
     @KafkaListener(topics = "${fairchain.kafka.topic.batch-registered}", groupId = "notification-service")
-    public void onBatchRegistered(BatchRegisteredEvent event) {
+    public void onBatchRegistered(String rawPayload) throws Exception {
+        BatchRegisteredEvent event = objectMapper.readValue(rawPayload, BatchRegisteredEvent.class);
         String message = String.format(
                 "Your batch of %.0fkg %s has been registered. Tracking updates will follow.",
                 event.getQuantity(), event.getCrop()
@@ -24,7 +27,8 @@ public class NotificationService {
     }
 
     @KafkaListener(topics = "${fairchain.kafka.topic.sale-confirmed}", groupId = "notification-service")
-    public void onSaleConfirmed(SaleConfirmedEvent event) {
+    public void onSaleConfirmed(String rawPayload) throws Exception {
+        SaleConfirmedEvent event = objectMapper.readValue(rawPayload, SaleConfirmedEvent.class);
         String message = String.format(
                 "Your batch sold for %.2f. Payment will follow on delivery confirmation.",
                 event.getPrice()
@@ -32,12 +36,9 @@ public class NotificationService {
         save(event.getFarmerId(), event.getBatchId(), "SALE_CONFIRMED", message, "PENDING");
     }
 
-    /**
-     * Now resolves — payment-released carries farmerId as of the
-     * escrow-service Transaction/PaymentReleasedEvent extension.
-     */
     @KafkaListener(topics = "${fairchain.kafka.topic.payment-released}", groupId = "notification-service")
-    public void onPaymentReleased(PaymentReleasedEvent event) {
+    public void onPaymentReleased(String rawPayload) throws Exception {
+        PaymentReleasedEvent event = objectMapper.readValue(rawPayload, PaymentReleasedEvent.class);
         String message = String.format(
                 "Payment of %.2f has been released for your batch.",
                 event.getAmount()

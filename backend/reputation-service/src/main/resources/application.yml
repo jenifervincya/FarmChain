@@ -19,14 +19,17 @@ spring:
       hibernate:
         format_sql: true
 
+  flyway:
+    table: flyway_schema_history_reputation
+    baseline-on-migrate: true
+    baseline-version: 0
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: reputation-service
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: com.fairchain.reputationservice
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 fairchain:
   kafka:

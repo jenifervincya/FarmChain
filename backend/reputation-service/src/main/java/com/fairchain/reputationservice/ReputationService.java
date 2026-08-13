@@ -1,5 +1,6 @@
 package com.fairchain.reputationservice;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +10,7 @@ import java.time.Instant;
 public class ReputationService {
 
     private final ReputationScoreRepository repository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final double DEFAULT_SCORE = 100.0;
     private static final double PENALTY_PER_DEVIATION = 5.0;
@@ -29,15 +31,10 @@ public class ReputationService {
         );
     }
 
-    /**
-     * Consumes price-deviation (Section 4.2), now published by auction-service.
-     * Placeholder scoring rule: -5 points per deviation event, floored at 0.
-     * Applied to the buyer node (last entry in nodeChain), since that's the
-     * "middleman" role Section 1.3's Reputation Ledger targets. This scoring
-     * formula is a judgment call, not derived from the spec — flagged.
-     */
     @KafkaListener(topics = "${fairchain.kafka.topic.price-deviation}", groupId = "reputation-service")
-    public void onPriceDeviation(PriceDeviationEvent event) {
+    public void onPriceDeviation(String rawPayload) throws Exception {
+        PriceDeviationEvent event = objectMapper.readValue(rawPayload, PriceDeviationEvent.class);
+
         if (event.getNodeChain() == null || event.getNodeChain().length == 0) {
             return;
         }
