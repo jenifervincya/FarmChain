@@ -8,6 +8,9 @@ const TONE_MAP = {
   RECORDED: 'verified',
   REJECTED_BELOW_FLOOR: 'alert',
   REJECTED: 'alert',
+  SENT: 'verified',
+  UNRESOLVED: 'alert',
+  FAILED: 'alert',
 };
 
 export default function StatusBadge({ status }) {

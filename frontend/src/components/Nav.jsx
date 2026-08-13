@@ -17,6 +17,9 @@ export default function Nav() {
           <NavLink to="/track" className={({ isActive }) => (isActive ? 'active' : '')}>
             Track a batch
           </NavLink>
+          <NavLink to="/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Notifications
+          </NavLink>
         </nav>
       </div>
     </header>

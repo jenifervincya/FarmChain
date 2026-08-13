@@ -1,15 +1,17 @@
-# Minimal local dev stack for testing backend services.
-# NOT the final docker-compose.yml — that's Archana's ownership per
-# Section 3.3/8.1 (infra/ is her domain). This is scoped just to
-# Postgres + Kafka so Jenifer can test her services locally before
-# the full orchestration (all services + Frontend) is built.
+# FairChain local dev orchestration.
+# Owned by Archana (Frontend/DevOps) per Section 3.3 of the spec.
+#
+# STATUS: skeleton. The `frontend` service is real and buildable today.
+# `backend` and `ai-service` are stubbed with placeholder build contexts —
+# swap in Jenifer's and Anisha's Dockerfiles as they land (Section 5,
+# Phase 4). Kafka/Postgres/Schema Registry images are standard and can be
+# used as-is; Backend still owns topic/schema creation (Section 2.1).
 
-version: "3.8"
+version: "3.9"
 
 services:
   postgres:
-    image: postgres:16
-    container_name: fairchain-postgres
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: fairchain
       POSTGRES_USER: fairchain
@@ -17,28 +19,68 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    container_name: fairchain-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    container_name: fairchain-kafka
     depends_on:
       - zookeeper
-    ports:
-      - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8081:8081"
+
+  # --- Placeholder until Jenifer supplies backend/Dockerfile ---
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    depends_on:
+      - postgres
+      - kafka
+      - schema-registry
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fairchain
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8080:8080"
+
+  # --- Placeholder until Anisha supplies ai-service/Dockerfile ---
+  ai-service:
+    build:
+      context: ../ai-service
+      dockerfile: Dockerfile
+    depends_on:
+      - kafka
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
 
 volumes:
-  postgres_data:
+  pgdata:

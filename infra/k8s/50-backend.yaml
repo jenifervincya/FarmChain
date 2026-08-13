@@ -1,0 +1,38 @@
+# PLACEHOLDER: image below assumes Jenifer builds and pushes
+# `fairchain/backend:latest` (or you build it locally and load it into
+# your cluster, e.g. `kind load docker-image` / `minikube image load`).
+# Swap the image field once backend/Dockerfile exists and is built.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: fairchain
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+    spec:
+      containers:
+        - name: backend
+          image: fairchain/backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/fairchain
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: fairchain
+spec:
+  selector: { app: backend }
+  ports:
+    - port: 8080
+      targetPort: 8080

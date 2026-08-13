@@ -3,6 +3,7 @@ import Nav from './components/Nav';
 import FarmerDashboard from './pages/FarmerDashboard';
 import BuyerDashboard from './pages/BuyerDashboard';
 import CustomerJourney from './pages/CustomerJourney';
+import NotificationQueue from './pages/NotificationQueue';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/farmer" element={<FarmerDashboard />} />
           <Route path="/buyer" element={<BuyerDashboard />} />
           <Route path="/track" element={<CustomerJourney />} />
+          <Route path="/notifications" element={<NotificationQueue />} />
         </Routes>
       </main>
     </>

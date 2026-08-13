@@ -194,6 +194,107 @@ export async function getFairPriceBand({ crop, region }) {
   return data;
 }
 
+// ---------------------------------------------------------------------
+// LIVE as of 2026-08-13 (Jenifer, pushed to dev) — routed through the
+// gateway at /api/v1/notifications/**. Not yet documented in Section 4.1
+// itself; flagged to the team to get it added.
+//
+// GET /api/v1/notifications?status=PENDING  (status filter optional)
+// POST /api/v1/notifications/{id}/mark-sent  (flips status to SENT)
+//
+// Real response shape confirmed by Jenifer:
+// { id, farmerId, batchId, eventType, message, status, createdAt }
+// NOTE: no phone number in this payload — see the open question below
+// about how Frontend is supposed to get a farmer's phone to actually
+// send an SMS. Flagged, not worked around.
+// ---------------------------------------------------------------------
+let mockNotifications = [
+  {
+    id: 1,
+    farmerId: 'F1023',
+    farmerPhone: '+91-98765-43210',
+    preferredLanguage: 'ta',
+    batchId: '5',
+    eventType: 'BATCH_REGISTERED',
+    message:
+      'Your batch of 500kg tomato has been registered. Tracking updates will follow.',
+    status: 'PENDING',
+    createdAt: '2026-08-13T10:00:05Z',
+  },
+  {
+    id: 2,
+    farmerId: 'F1023',
+    farmerPhone: '+91-98765-43210',
+    preferredLanguage: 'ta',
+    batchId: '5',
+    eventType: 'SALE_CONFIRMED',
+    message:
+      'Your batch sold for 19.00. Payment will follow on delivery confirmation.',
+    status: 'PENDING',
+    createdAt: '2026-08-13T11:15:03Z',
+  },
+];
+
+export async function getPendingNotifications() {
+  if (USE_MOCKS) {
+    return delay(mockNotifications);
+  }
+
+  const { data } = await client.get('/notifications', {
+    params: { status: 'PENDING' },
+  });
+
+  return data;
+}
+
+// Body shape unconfirmed with Jenifer — assuming { status } for now.
+// If mark-sent turns out to take no body, this still works (Backend
+// would just ignore the extra field), but confirm before relying on
+// the FAILED path.
+export async function markNotificationSent(id, result /* 'SENT' | 'FAILED' */) {
+  if (USE_MOCKS) {
+    mockNotifications = mockNotifications.map((notification) =>
+      notification.id === id
+        ? { ...notification, status: result }
+        : notification
+    );
+
+    return delay({ id, status: result });
+  }
+
+  const { data } = await client.post(`/notifications/${id}/mark-sent`, {
+    status: result,
+  });
+
+  return data;
+}
+
+// ---------------------------------------------------------------------
+// Farmer contact lookup — NOT in Section 4.1 yet. Jenifer confirmed
+// notifications only return farmerId, no phone. She's unavailable to
+// add a real endpoint right now, so this tries a sensible guessed path
+// first (GET /api/v1/farmers/{farmerId}) and falls back to a local demo
+// phonebook if that 404s or errors — so the app stays fully functional
+// today. Swap this out (or just delete the fallback) the moment the
+// real endpoint exists; nothing else in the app needs to change.
+// ---------------------------------------------------------------------
+const DEMO_PHONEBOOK = {
+  F1023: { phone: '+91-98765-43210', preferredLanguage: 'ta', source: 'demo' },
+};
+
+export async function getFarmerContact(farmerId) {
+  if (USE_MOCKS) {
+    return DEMO_PHONEBOOK[farmerId] || { phone: null, preferredLanguage: null, source: 'demo' };
+  }
+  try {
+    const { data } = await client.get(`/farmers/${farmerId}`);
+    return { phone: data.phone, preferredLanguage: data.preferredLanguage, source: 'live' };
+  } catch {
+    // Endpoint doesn't exist yet — fall back so the UI still works.
+    return DEMO_PHONEBOOK[farmerId] || { phone: null, preferredLanguage: null, source: 'demo' };
+  }
+}
+
 export default {
   registerBatch,
   getBatchStatus,
@@ -203,4 +304,7 @@ export default {
   getReputation,
   getPriceJourney,
   getFairPriceBand,
+  getPendingNotifications,
+  markNotificationSent,
+  getFarmerContact,
 };
