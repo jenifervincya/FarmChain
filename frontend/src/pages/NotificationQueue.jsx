@@ -10,13 +10,11 @@ import StatusBadge from '../components/StatusBadge';
  * GET /api/v1/notifications endpoint). This screen turns that into an
  * actual SMS/IVR send.
  *
- * PHONE NUMBER: the live notifications endpoint doesn't return one, and
- * there's no farmer-contact endpoint in Section 4.1 yet. getFarmerContact()
- * in api.js tries a guessed /api/v1/farmers/{id} path and falls back to a
- * small local demo phonebook if that's not there — rows using the
- * fallback are marked "DEMO" so it's never mistaken for real data. Once
- * Jenifer adds the real endpoint, this screen needs no changes at all —
- * getFarmerContact() will just start returning source: 'live'.
+ * PHONE NUMBER: live as of Jenifer's confirmation — GET /api/v1/farmers/{id}
+ * returns phone, name, region, preferredLanguage. getFarmerContact() in
+ * api.js calls this for real, falling back to a small labeled demo
+ * phonebook only if the backend call fails (down, wrong port, CORS) —
+ * that fallback protects the live demo from a network hiccup.
  *
  * TWILIO: a Twilio Auth Token can't safely live in browser JS. sendNotification()
  * below is a stub that simulates a send — the real version needs a
@@ -34,7 +32,7 @@ async function sendNotification(row, contact, channel) {
 
 export default function NotificationQueue() {
   const [rows, setRows] = useState([]);
-  const [contacts, setContacts] = useState({}); // farmerId -> { phone, preferredLanguage, source }
+  const [contacts, setContacts] = useState({});
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState(null);
   const [channel, setChannel] = useState('SMS');
@@ -60,8 +58,8 @@ export default function NotificationQueue() {
     const contact = contacts[row.farmerId];
     if (!contact?.phone) return;
     setSendingId(row.id);
-    const result = await sendNotification(row, contact, channel);
-    await markNotificationSent(row.id, result.ok ? 'SENT' : 'FAILED');
+    await sendNotification(row, contact, channel);
+    await markNotificationSent(row.id); // no body — always sets SENT
     setSendingId(null);
     load();
   }

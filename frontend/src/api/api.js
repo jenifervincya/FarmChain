@@ -39,13 +39,48 @@ function delay(data, ms = 400) {
 }
 
 // ---------------------------------------------------------------------
+// DEMO-ONLY local memory (mock mode only): remembers what was actually
+// registered (crop, region, quantity) so later screens — tracking,
+// auction, price journey — reflect the real input instead of a
+// hardcoded "tomato" example. This is NOT a database and isn't meant to
+// be one; it's a stand-in for what Backend's PostgreSQL will really do
+// once you're on real endpoints. Lives in localStorage so it survives
+// a page refresh during a demo.
+// ---------------------------------------------------------------------
+const DEMO_STORE_KEY = 'fairchain_demo_batches';
+
+function readDemoStore() {
+  try {
+    return JSON.parse(localStorage.getItem(DEMO_STORE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDemoRecord(batchId, trackingCode, record) {
+  const store = readDemoStore();
+  store[batchId] = { trackingCode, ...record };
+  store[trackingCode] = { batchId, ...record };
+  localStorage.setItem(DEMO_STORE_KEY, JSON.stringify(store));
+}
+
+function readDemoRecord(idOrTrackingCode) {
+  return readDemoStore()[idOrTrackingCode] || null;
+}
+
+// ---------------------------------------------------------------------
 // POST /api/v1/batches  — Register a new produce batch
 // ---------------------------------------------------------------------
 export async function registerBatch({ farmerId, crop, quantityKg, region }) {
   if (USE_MOCKS) {
+    const cropCode = (crop || 'CRP').slice(0, 3).toUpperCase();
+    const idNum = Math.floor(10000 + seededRandom(`${crop}-${region}-${quantityKg}`) * 90000);
+    const batchId = `B${idNum}`;
+    const trackingCode = `FC-${cropCode}-${idNum}`;
+    writeDemoRecord(batchId, trackingCode, { crop, region, quantityKg, farmerId });
     return delay({
-      batchId: 'B98213',
-      trackingCode: 'FC-TMT-98213',
+      batchId,
+      trackingCode,
       status: 'REGISTERED',
       createdAt: new Date().toISOString(),
     });
@@ -59,15 +94,18 @@ export async function registerBatch({ farmerId, crop, quantityKg, region }) {
 // ---------------------------------------------------------------------
 export async function getBatchStatus(trackingCode) {
   if (USE_MOCKS) {
+    const record = readDemoRecord(trackingCode);
+    const crop = record?.crop || 'produce';
+    const region = record?.region || 'coimbatore';
     return delay({
-      batchId: 'B98213',
+      batchId: record?.batchId || 'B00000',
       trackingCode,
-      crop: 'tomato',
-      region: 'coimbatore',
-      quantityKg: 500,
+      crop,
+      region,
+      quantityKg: record?.quantityKg || 500,
       status: 'IN_TRANSIT',
       events: [
-        { eventType: 'pickup-event', timestamp: '2026-08-09T10:30:00Z', location: 'Farm - Coimbatore' },
+        { eventType: 'pickup-event', timestamp: '2026-08-09T10:30:00Z', location: `Farm - ${region}` },
         { eventType: 'transport-event', timestamp: '2026-08-09T14:00:00Z', location: 'En route - Salem' },
       ],
     });
@@ -99,14 +137,21 @@ export async function placeBid(batchId, { buyerId, amount }) {
 // ---------------------------------------------------------------------
 export async function getAuctionStatus(batchId) {
   if (USE_MOCKS) {
+    const record = readDemoRecord(batchId);
+    const crop = record?.crop || 'produce';
+    const region = record?.region || 'coimbatore';
+    const band = generateSyntheticBand(crop, region);
+    const idNum = Math.floor(1000 + seededRandom(`${batchId}-auction`) * 9000);
     return delay({
-      auctionId: 'AUC-4410',
+      auctionId: `AUC-${idNum}`,
       batchId,
+      crop,
+      region,
       status: 'OPEN',
-      floorPrice: 18.5,
+      floorPrice: band.minPrice,
       bids: [
-        { bidId: 'BID-5519', buyerId: 'BUY-201', amount: 19.0, status: 'ACCEPTED' },
-        { bidId: 'BID-5520', buyerId: 'BUY-204', amount: 17.0, status: 'REJECTED_BELOW_FLOOR' },
+        { bidId: `BID-${idNum}1`, buyerId: 'BUY-201', amount: Math.round((band.minPrice + 0.5) * 100) / 100, status: 'ACCEPTED' },
+        { bidId: `BID-${idNum}2`, buyerId: 'BUY-204', amount: Math.round((band.minPrice - 1.5) * 100) / 100, status: 'REJECTED_BELOW_FLOOR' },
       ],
     });
   }
@@ -153,15 +198,22 @@ export async function getReputation(entityId) {
 // ---------------------------------------------------------------------
 export async function getPriceJourney(trackingCode) {
   if (USE_MOCKS) {
+    const record = readDemoRecord(trackingCode);
+    const crop = record?.crop || 'produce';
+    const region = record?.region || 'coimbatore';
+    const band = generateSyntheticBand(crop, region);
+    const farmgate = band.minPrice + (band.maxPrice - band.minPrice) * 0.2;
+    const auctionPrice = farmgate;
+    const retail = band.maxPrice * 1.15; // retail markup beyond the fair band — the "gap" FairChain surfaces
     return delay({
       trackingCode,
-      crop: 'tomato',
-      region: 'coimbatore',
-      fairBand: { minPrice: 18.5, maxPrice: 24.0, currency: 'INR_per_kg' },
+      crop,
+      region,
+      fairBand: { minPrice: band.minPrice, maxPrice: band.maxPrice, currency: band.currency },
       steps: [
-        { stage: 'Farmgate', price: 19.0, timestamp: '2026-08-09T10:00:00Z' },
-        { stage: 'Auction sale', price: 19.0, timestamp: '2026-08-09T11:15:00Z' },
-        { stage: 'Retail', price: 26.5, timestamp: '2026-08-10T08:00:00Z' },
+        { stage: 'Farmgate', price: Math.round(farmgate * 100) / 100, timestamp: '2026-08-09T10:00:00Z' },
+        { stage: 'Auction sale', price: Math.round(auctionPrice * 100) / 100, timestamp: '2026-08-09T11:15:00Z' },
+        { stage: 'Retail', price: Math.round(retail * 100) / 100, timestamp: '2026-08-10T08:00:00Z' },
       ],
     });
   }
@@ -172,22 +224,98 @@ export async function getPriceJourney(trackingCode) {
 // ---------------------------------------------------------------------
 // GET /ai/fair-price-band?crop=&region=  (AI-implemented, always called
 // through Backend's proxy — Frontend never calls the AI service directly)
+//
+// REAL DATA SOURCE (temporary, demo-only): data.gov.in publishes actual
+// government mandi price data ("Variety-wise Daily Market Prices of
+// Commodity", sourced from Agmarknet). Free API key at
+// https://data.gov.in/user/register — then set VITE_MANDI_API_KEY in
+// .env. This calls it directly from the browser as a stopgap so the
+// demo has real numbers when possible; architecturally this belongs in
+// Anisha's AI service (Section 3.2), not here — flag that to the team
+// after the demo rather than leaving it as a permanent pattern.
+//
+// Government APIs often don't set CORS headers for browser calls, so
+// this can fail silently from a browser (not from curl/Postman, only
+// from JS running on a webpage). If it fails for ANY reason — no key,
+// CORS block, crop not found in the dataset, network error — this
+// falls back to generateSyntheticBand(), which produces a believable,
+// CONSISTENT price band for literally any crop/region typed, not just
+// tomato. That fallback is what protects you if someone types "onion"
+// live in front of the panel.
 // ---------------------------------------------------------------------
+
+const MANDI_RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070'; // data.gov.in dataset id
+const MANDI_API_KEY = import.meta.env.VITE_MANDI_API_KEY;
+
+// Deterministic "hash" so the same crop+region always produces the same
+// believable numbers across reloads, instead of jumping around randomly
+// every time you register the same crop again.
+function seededRandom(seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h << 5) - h + seed.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h % 1000) / 1000; // 0..1
+}
+
+function generateSyntheticBand(crop, region) {
+  const base = 12 + seededRandom(`${crop}-${region}-base`) * 40; // ₹12–52/kg base
+  const spread = 3 + seededRandom(`${crop}-${region}-spread`) * 6;
+  const weatherOptions = ['clear', 'moderate_rain_delay', 'heavy_rain_risk', 'heatwave_stress'];
+  const sentimentOptions = ['neutral', 'positive', 'cautious'];
+  return {
+    crop,
+    region,
+    minPrice: Math.round((base - spread) * 100) / 100,
+    maxPrice: Math.round((base + spread) * 100) / 100,
+    currency: 'INR_per_kg',
+    computedAt: new Date().toISOString(),
+    factors: {
+      weatherImpact: weatherOptions[Math.floor(seededRandom(`${crop}-${region}-weather`) * weatherOptions.length)],
+      transportCostIndex: Math.round((1 + seededRandom(`${crop}-${region}-transport`) * 0.4) * 100) / 100,
+      crisisSentiment: sentimentOptions[Math.floor(seededRandom(`${crop}-${region}-sentiment`) * sentimentOptions.length)],
+    },
+    source: 'synthetic', // clearly labeled — not a real government figure
+  };
+}
+
+async function fetchRealMandiPrice(crop, region) {
+  if (!MANDI_API_KEY) return null;
+  const url = `https://api.data.gov.in/resource/${MANDI_RESOURCE_ID}?api-key=${MANDI_API_KEY}&format=json&limit=5&filters[commodity]=${encodeURIComponent(crop)}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const record = data?.records?.[0];
+  if (!record) return null;
+  const min = parseFloat(record.min_price);
+  const max = parseFloat(record.max_price);
+  if (!min || !max) return null;
+  return {
+    crop,
+    region: record.district || region,
+    minPrice: min / 100, // dataset reports ₹/quintal — convert to ₹/kg
+    maxPrice: max / 100,
+    currency: 'INR_per_kg',
+    computedAt: new Date().toISOString(),
+    factors: {
+      weatherImpact: 'not modeled (real mandi data has no weather field)',
+      transportCostIndex: null,
+      crisisSentiment: null,
+    },
+    source: 'agmarknet_live',
+  };
+}
+
 export async function getFairPriceBand({ crop, region }) {
   if (USE_MOCKS) {
-    return delay({
-      crop,
-      region,
-      minPrice: 18.5,
-      maxPrice: 24.0,
-      currency: 'INR_per_kg',
-      computedAt: new Date().toISOString(),
-      factors: {
-        weatherImpact: 'moderate_rain_delay',
-        transportCostIndex: 1.12,
-        crisisSentiment: 'neutral',
-      },
-    });
+    try {
+      const real = await fetchRealMandiPrice(crop, region);
+      if (real) return real;
+    } catch {
+      // fall through to synthetic
+    }
+    return delay(generateSyntheticBand(crop, region));
   }
   // Routed through Backend, not called on the AI service host directly.
   const { data } = await client.get('/ai/fair-price-band', { params: { crop, region } });
@@ -208,91 +336,67 @@ export async function getFairPriceBand({ crop, region }) {
 // about how Frontend is supposed to get a farmer's phone to actually
 // send an SMS. Flagged, not worked around.
 // ---------------------------------------------------------------------
-let mockNotifications = [
-  {
-    id: 1,
-    farmerId: 'F1023',
-    farmerPhone: '+91-98765-43210',
-    preferredLanguage: 'ta',
-    batchId: '5',
-    eventType: 'BATCH_REGISTERED',
-    message:
-      'Your batch of 500kg tomato has been registered. Tracking updates will follow.',
-    status: 'PENDING',
-    createdAt: '2026-08-13T10:00:05Z',
-  },
-  {
-    id: 2,
-    farmerId: 'F1023',
-    farmerPhone: '+91-98765-43210',
-    preferredLanguage: 'ta',
-    batchId: '5',
-    eventType: 'SALE_CONFIRMED',
-    message:
-      'Your batch sold for 19.00. Payment will follow on delivery confirmation.',
-    status: 'PENDING',
-    createdAt: '2026-08-13T11:15:03Z',
-  },
-];
-
 export async function getPendingNotifications() {
   if (USE_MOCKS) {
-    return delay(mockNotifications);
+    return delay([
+      {
+        id: '1',
+        farmerId: 'F1023',
+        batchId: '5',
+        eventType: 'BATCH_REGISTERED',
+        message: 'Your batch of 500kg tomato has been registered. Tracking updates will follow.',
+        status: 'PENDING',
+        createdAt: '2026-08-13T10:00:05Z',
+      },
+      {
+        id: '2',
+        farmerId: 'F1023',
+        batchId: '5',
+        eventType: 'SALE_CONFIRMED',
+        message: 'Your batch sold for 19.00. Payment will follow on delivery confirmation.',
+        status: 'PENDING',
+        createdAt: '2026-08-13T11:15:03Z',
+      },
+    ]);
   }
-
   const { data } = await client.get('/notifications', {
     params: { status: 'PENDING' },
   });
-
-  return data;
-}
-
-// Body shape unconfirmed with Jenifer — assuming { status } for now.
-// If mark-sent turns out to take no body, this still works (Backend
-// would just ignore the extra field), but confirm before relying on
-// the FAILED path.
-export async function markNotificationSent(id, result /* 'SENT' | 'FAILED' */) {
-  if (USE_MOCKS) {
-    mockNotifications = mockNotifications.map((notification) =>
-      notification.id === id
-        ? { ...notification, status: result }
-        : notification
-    );
-
-    return delay({ id, status: result });
-  }
-
-  const { data } = await client.post(`/notifications/${id}/mark-sent`, {
-    status: result,
-  });
-
   return data;
 }
 
 // ---------------------------------------------------------------------
-// Farmer contact lookup — NOT in Section 4.1 yet. Jenifer confirmed
-// notifications only return farmerId, no phone. She's unavailable to
-// add a real endpoint right now, so this tries a sensible guessed path
-// first (GET /api/v1/farmers/{farmerId}) and falls back to a local demo
-// phonebook if that 404s or errors — so the app stays fully functional
-// today. Swap this out (or just delete the fallback) the moment the
-// real endpoint exists; nothing else in the app needs to change.
+// Farmer contact lookup — LIVE as of Jenifer's message (2026-08-13):
+// GET /api/v1/farmers/{farmerId}, routed through the gateway, returns
+// { phone, name, region, preferredLanguage }. No more guessing needed.
+// Fallback to the local demo phonebook is kept as a safety net for the
+// live demo — if the network call fails for any reason (backend not
+// running, wrong port, CORS), the UI still works instead of breaking
+// on stage.
 // ---------------------------------------------------------------------
 const DEMO_PHONEBOOK = {
   F1023: { phone: '+91-98765-43210', preferredLanguage: 'ta', source: 'demo' },
 };
 
 export async function getFarmerContact(farmerId) {
-  if (USE_MOCKS) {
-    return DEMO_PHONEBOOK[farmerId] || { phone: null, preferredLanguage: null, source: 'demo' };
-  }
   try {
     const { data } = await client.get(`/farmers/${farmerId}`);
     return { phone: data.phone, preferredLanguage: data.preferredLanguage, source: 'live' };
   } catch {
-    // Endpoint doesn't exist yet — fall back so the UI still works.
+    // Backend not reachable (down, wrong port, CORS) — fall back so the UI still works.
     return DEMO_PHONEBOOK[farmerId] || { phone: null, preferredLanguage: null, source: 'demo' };
   }
+}
+
+// mark-sent confirmed: no body, unconditionally sets status to SENT.
+// There's currently no FAILED path on Backend — flagged to Jenifer if
+// retry/error UI is needed later.
+export async function markNotificationSent(id) {
+  if (USE_MOCKS) {
+    return delay({ id, status: 'SENT' });
+  }
+  const { data } = await client.post(`/notifications/${id}/mark-sent`);
+  return data;
 }
 
 export default {

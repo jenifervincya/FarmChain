@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { placeBid, getReputation } from '../api/api';
+import { placeBid, getReputation, getAuctionStatus } from '../api/api';
 import FairPriceChart from '../components/FairPriceChart';
 import StatusBadge from '../components/StatusBadge';
 
@@ -8,14 +8,19 @@ export default function BuyerDashboard() {
   const [batchId, setBatchId] = useState('');
   const [amount, setAmount] = useState('');
   const [bidResult, setBidResult] = useState(null);
+  const [auctionInfo, setAuctionInfo] = useState(null);
   const [reputation, setReputation] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleBid(e) {
     e.preventDefault();
     setSubmitting(true);
-    const result = await placeBid(batchId, { buyerId, amount: Number(amount) });
+    const [result, auction] = await Promise.all([
+      placeBid(batchId, { buyerId, amount: Number(amount) }),
+      getAuctionStatus(batchId),
+    ]);
     setBidResult(result);
+    setAuctionInfo(auction);
     setSubmitting(false);
   }
 
@@ -58,7 +63,11 @@ export default function BuyerDashboard() {
             Bid <span className="tracking-code">{bidResult.bidId}</span> —{' '}
             <StatusBadge status={bidResult.status} />
           </p>
-          <FairPriceChart crop="tomato" region="coimbatore" currentPrice={Number(amount)} />
+          <FairPriceChart
+            crop={auctionInfo?.crop || 'produce'}
+            region={auctionInfo?.region || 'coimbatore'}
+            currentPrice={Number(amount)}
+          />
         </div>
       )}
 
