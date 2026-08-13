@@ -1,6 +1,8 @@
 package com.fairchain.notificationservice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -10,10 +12,13 @@ import java.time.Instant;
 public class NotificationService {
 
     private final NotificationLogRepository repository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public NotificationService(NotificationLogRepository repository) {
         this.repository = repository;
+        this.objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     @KafkaListener(topics = "${fairchain.kafka.topic.batch-registered}", groupId = "notification-service")
