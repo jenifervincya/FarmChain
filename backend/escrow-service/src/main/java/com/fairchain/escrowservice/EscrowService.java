@@ -1,6 +1,8 @@
 package com.fairchain.escrowservice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -20,7 +22,9 @@ public class EscrowService {
     private final String paymentReleasedTopic;
     private final RestTemplate restTemplate;
     private final String aiBaseUrl;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     public EscrowService(TransactionRepository transactionRepository,
                           InsuranceClaimRepository insuranceClaimRepository,
