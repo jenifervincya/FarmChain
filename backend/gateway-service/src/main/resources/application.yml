@@ -49,6 +49,11 @@ spring:
           filters:
             - StripPrefix=2
 
+        - id: escrow-transactions
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/v1/transactions/**
+
   cloud.discovery.enabled: false
 
 eureka:
