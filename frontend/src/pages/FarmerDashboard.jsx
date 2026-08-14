@@ -79,7 +79,7 @@ export default function FarmerDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {auction.bids.map((bid) => (
+                  {(auction.bids || []).map((bid) => (
                     <tr key={bid.bidId}>
                       <td>{bid.bidId}</td>
                       <td>{bid.buyerId}</td>
