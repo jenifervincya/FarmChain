@@ -48,12 +48,12 @@ export default function CustomerJourney() {
             {journey.crop} · {journey.region}
           </h3>
           <p className="muted">
-            Fair band: ₹{journey.fairBand.minPrice}–₹{journey.fairBand.maxPrice} {journey.fairBand.currency}
+            Fair band: {journey.fairBand ? `₹${journey.fairBand.minPrice}–₹${journey.fairBand.maxPrice} ${journey.fairBand.currency}` : 'Not available'}
           </p>
 
           <h3 style={{ fontSize: '1rem', marginTop: 24, marginBottom: 12 }}>Physical journey</h3>
           <ul className="journey-list">
-            {batch.events.map((ev, i) => (
+            {(batch.events || []).map((ev, i) => (
               <li key={i}>
                 <div className="stage">{ev.eventType}</div>
                 <div>{ev.location}</div>
@@ -72,7 +72,7 @@ export default function CustomerJourney() {
               </tr>
             </thead>
             <tbody>
-              {journey.steps.map((step, i) => (
+              {(journey.steps || []).map((step, i) => (
                 <tr key={i}>
                   <td>{step.stage}</td>
                   <td>₹{step.price}</td>
