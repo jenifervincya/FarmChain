@@ -115,6 +115,32 @@ export async function getBatchStatus(trackingCode) {
 }
 
 // ---------------------------------------------------------------------
+// GET /api/v1/transactions/{batchId} — LIVE, confirmed by Jenifer (2026-08-14).
+// Real shape: { batchId, farmerId, buyerId, amount, escrowStatus, releasedAt }
+// escrowStatus: PENDING until a delivery-event fires, then RELEASED with
+// a real releasedAt timestamp. Not documented in Section 4.1 yet — flag
+// for that to get added.
+// ---------------------------------------------------------------------
+export async function getTransactionStatus(batchId) {
+  if (USE_MOCKS) {
+    const record = readDemoRecord(batchId);
+    const crop = record?.crop || 'produce';
+    const region = record?.region || 'coimbatore';
+    const band = generateSyntheticBand(crop, region);
+    return delay({
+      batchId,
+      farmerId: record?.farmerId || 'F1023',
+      buyerId: 'BUY-201',
+      amount: Math.round(band.minPrice * (record?.quantityKg || 500) * 100) / 100,
+      escrowStatus: 'PENDING', // mock mode never fires a real delivery-event, so stays PENDING
+      releasedAt: null,
+    });
+  }
+  const { data } = await client.get(`/transactions/${batchId}`);
+  return data;
+}
+
+// ---------------------------------------------------------------------
 // POST /api/v1/auctions/{batchId}/bids — Buyer places a bid
 // ---------------------------------------------------------------------
 export async function placeBid(batchId, { buyerId, amount }) {
@@ -411,4 +437,5 @@ export default {
   getPendingNotifications,
   markNotificationSent,
   getFarmerContact,
+  getTransactionStatus,
 };

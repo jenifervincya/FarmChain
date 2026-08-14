@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { registerBatch, getAuctionStatus } from '../api/api';
+import { registerBatch, getAuctionStatus, getTransactionStatus } from '../api/api';
 import FairPriceChart from '../components/FairPriceChart';
 import StatusBadge from '../components/StatusBadge';
 
@@ -7,16 +7,28 @@ export default function FarmerDashboard() {
   const [form, setForm] = useState({ farmerId: 'F1023', crop: 'tomato', quantityKg: '', region: 'coimbatore' });
   const [batch, setBatch] = useState(null);
   const [auction, setAuction] = useState(null);
+  const [transaction, setTransaction] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
-    const result = await registerBatch({ ...form, quantityKg: Number(form.quantityKg) });
-    setBatch(result);
-    const auctionStatus = await getAuctionStatus(result.batchId);
-    setAuction(auctionStatus);
-    setSubmitting(false);
+    setError(null);
+    try {
+      const result = await registerBatch({ ...form, quantityKg: Number(form.quantityKg) });
+      setBatch(result);
+      const [auctionStatus, txn] = await Promise.all([
+        getAuctionStatus(result.batchId),
+        getTransactionStatus(result.batchId),
+      ]);
+      setAuction(auctionStatus);
+      setTransaction(txn);
+    } catch (err) {
+      setError(err?.response?.data?.message || err.message || 'Registration failed — check the backend connection.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -47,6 +59,11 @@ export default function FarmerDashboard() {
           <button className="primary" type="submit" disabled={submitting}>
             {submitting ? 'Registering…' : 'Register batch'}
           </button>
+          {error && (
+            <p className="stamp alert" style={{ marginTop: 12, display: 'block', width: 'fit-content' }}>
+              {error}
+            </p>
+          )}
         </form>
       </div>
 
@@ -55,6 +72,9 @@ export default function FarmerDashboard() {
           <h3>
             Batch <span className="tracking-code">{batch.trackingCode}</span>
           </h3>
+          <p className="muted">
+            Batch ID (use this on the Buyer Dashboard to bid): <span className="tracking-code">{batch.batchId}</span>
+          </p>
           <p className="muted">Registered {new Date(batch.createdAt).toLocaleString()}</p>
           <StatusBadge status={batch.status} />
 
@@ -93,6 +113,25 @@ export default function FarmerDashboard() {
               </table>
             </div>
           )}
+
+          <div style={{ marginTop: 24 }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: 12 }}>Payment status</h3>
+            {transaction ? (
+              <p>
+                <StatusBadge status={transaction.escrowStatus} />{' '}
+                {transaction.escrowStatus === 'RELEASED' ? (
+                  <>
+                    — ₹{transaction.amount} released
+                    {transaction.releasedAt && ` on ${new Date(transaction.releasedAt).toLocaleString()}`}
+                  </>
+                ) : (
+                  <>— ₹{transaction.amount} held in escrow, releases automatically on delivery confirmation</>
+                )}
+              </p>
+            ) : (
+              <p className="muted">Payment status not available yet for this batch.</p>
+            )}
+          </div>
         </div>
       )}
     </div>
